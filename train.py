@@ -74,9 +74,16 @@ def process_reals(x, lod, mirror_augment, drange_data, drange_net):
         with tf.name_scope('UpscaleLOD'): # Upscale to match the expected input/output size of the networks.
             s = tf.shape(x)
             factor = tf.cast(2 ** tf.floor(lod), tf.int32)
+            print("shape is: {}".format(s))
+            print("lod is: {}".format(lod))
+
             x = tf.reshape(x, [-1, s[1], s[2], 1, s[3], 1])
+            print("shape after reshape: {}".format(tf.shape(x)))
             x = tf.tile(x, [1, 1, 1, factor, 1, factor])
+            print("shape after tile: {}".format(tf.shape(x)))
             x = tf.reshape(x, [-1, s[1], s[2] * factor, s[3] * factor])
+            print("shape after reshape: {}".format(tf.shape(x)))
+
         return x
 
 #----------------------------------------------------------------------------
