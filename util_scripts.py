@@ -195,7 +195,7 @@ def evaluate_metrics(run_id, log, metrics, num_images, real_passes, minibatch_si
         [obj.begin(mode) for obj in metric_objs]
         for begin in range(0, num_images, minibatch_size):
             end = min(begin + minibatch_size, num_images)
-            images, labels[begin:end] = dataset_obj.get_minibatch_np(end - begin)
+            images, labels[begin:end], beauty_rates = dataset_obj.get_minibatch_np(end - begin)
             if mirror_augment:
                 images = misc.apply_mirror_augment(images)
             if images.shape[1] == 1:

@@ -10,6 +10,7 @@ import glob
 import numpy as np
 import tensorflow as tf
 import tfutil
+import csv
 
 #----------------------------------------------------------------------------
 # Parse individual image from a tfrecords file.
@@ -62,7 +63,7 @@ class TFRecordDataset:
         self._tf_minibatch_np   = None
         self._cur_minibatch     = -1
         self._cur_lod           = -1
-
+        
         # List tfrecords files and inspect their shapes.
         assert os.path.isdir(self.tfrecord_dir)
         tfr_files = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*.tfrecords')))
@@ -106,6 +107,9 @@ class TFRecordDataset:
         self.label_size = self._np_labels.shape[1]
         self.label_dtype = self._np_labels.dtype.name
 
+        
+        beauty_rates_np = load_csv()
+        
         # Build TF expressions.
         with tf.name_scope('Dataset'), tf.device('/cpu:0'):
             self._tf_minibatch_in = tf.placeholder(tf.int64, name='minibatch_in', shape=[])
@@ -113,12 +117,22 @@ class TFRecordDataset:
             self._tf_labels_var = tf.Variable(tf_labels_init, name='labels_var')
             tfutil.set_vars({self._tf_labels_var: self._np_labels})
             self._tf_labels_dataset = tf.data.Dataset.from_tensor_slices(self._tf_labels_var)
+            
+            #tf_rates = tf.get_variable("tf_rates", initializer=beauty_rates_np)
+            #tf_rates = tf.convert_to_tensor(beauty_rates_np, dtype=tf.float32)
+            
+            tf_rates_init = tf.zeros(beauty_rates_np.shape, beauty_rates_np.dtype)
+            tf_rates_var = tf.Variable(tf_rates_init, name='rates_var')
+            tfutil.set_vars({tf_rates_var: beauty_rates_np})
+            tf_rates_dataset = tf.data.Dataset.from_tensors(tf_rates_var)
+            #print(tf_rates_dataset)
+
             for tfr_file, tfr_shape, tfr_lod in zip(tfr_files, tfr_shapes, tfr_lods):
                 if tfr_lod < 0:
                     continue
                 dset = tf.data.TFRecordDataset(tfr_file, compression_type='', buffer_size=buffer_mb<<20)
                 dset = dset.map(parse_tfrecord_tf, num_parallel_calls=num_threads)
-                dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset))
+                dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset, tf_rates_dataset))
                 bytes_per_item = np.prod(tfr_shape) * np.dtype(self.dtype).itemsize
                 if shuffle_mb > 0:
                     dset = dset.shuffle(((shuffle_mb << 20) - 1) // bytes_per_item + 1)
@@ -142,7 +156,8 @@ class TFRecordDataset:
 
     # Get next minibatch as TensorFlow expressions.
     def get_minibatch_tf(self): # => images, labels
-        return self._tf_iterator.get_next()
+        images, labels, beauty_rates = self._tf_iterator.get_next()
+        return images, labels, beauty_rates
 
     # Get next minibatch as NumPy arrays.
     def get_minibatch_np(self, minibatch_size, lod=0): # => images, labels
@@ -239,3 +254,39 @@ def load_dataset(class_name='dataset.TFRecordDataset', data_dir=None, verbose=Fa
     return dataset
 
 #----------------------------------------------------------------------------
+# Helper func for constructing a numpy of beauty rates from a csv file
+
+def load_csv(folder_dataset=None):
+    # Dictionary to load dataset
+    # key: image name
+    # value: list of 60 beauty rates from raters
+    dataset_dict = {}
+    
+    folder_dataset = 'CelebA-HQ'
+    
+    # read raters csv file
+    with open(os.path.join('../datasets',folder_dataset,'All_Ratings.csv'), 'r') as csvfile:
+        
+        raw_dataset = csv.reader(csvfile, delimiter=',', quotechar='|')
+        for i, row in enumerate(raw_dataset):
+            row = ','.join(row)
+            row = row.split(',')
+            
+            # create list of rates for each image
+            if row[1] in dataset_dict:
+                dataset_dict[row[1]][0].append(float(row[2]))
+            else:
+                dataset_dict[row[1]] = [[float(row[2])]]
+
+    beauty_rates_list = []
+    # move dict to lists, convert beauty rates to numpy ranged in [0,1]
+    for key, value in dataset_dict.items():
+        beauty_rates_list.append(value)
+                    
+    # convert dataset_dict to a numpy of beauty rates in shape of [30000,60]
+    beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32) / 5.0)
+
+    # change shape from [30000,1,60] to [30000,60]
+    beauty_rates_np = np.squeeze(beauty_rates_np, axis=1)
+    
+    return beauty_rates_np

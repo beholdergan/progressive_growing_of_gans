@@ -38,7 +38,7 @@ def setup_snapshot_image_grid(G, training_set,
     for idx in range(gw * gh):
         x = idx % gw; y = idx // gw
         while True:
-            real, label = training_set.get_minibatch_np(1)
+            real, label, beauty_rates = training_set.get_minibatch_np(1)
             if layout == 'row_per_class' and training_set.label_size > 0:
                 if label[0, y % training_set.label_size] == 0.0:
                     continue
@@ -177,7 +177,7 @@ def train_progressive_gan(
         lrate_in        = tf.placeholder(tf.float32, name='lrate_in', shape=[])
         minibatch_in    = tf.placeholder(tf.int32, name='minibatch_in', shape=[])
         minibatch_split = minibatch_in // config.num_gpus
-        reals, labels   = training_set.get_minibatch_tf()
+        reals, labels, beauty_rates   = training_set.get_minibatch_tf()
         reals_split     = tf.split(reals, config.num_gpus)
         labels_split    = tf.split(labels, config.num_gpus)
     G_opt = tfutil.Optimizer(name='TrainG', learning_rate=lrate_in, **config.G_opt)
