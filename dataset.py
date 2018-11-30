@@ -74,7 +74,7 @@ class TFRecordDataset:
             for record in tf.python_io.tf_record_iterator(tfr_file, tfr_opt):
                 tfr_shapes.append(parse_tfrecord_np(record).shape)
                 break
-
+        
         # Autodetect label filename.
         if self.label_file is None:
             guess = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*.labels')))
@@ -84,7 +84,7 @@ class TFRecordDataset:
             guess = os.path.join(self.tfrecord_dir, self.label_file)
             if os.path.isfile(guess):
                 self.label_file = guess
-
+        
         # Determine shape and resolution.
         max_shape = max(tfr_shapes, key=lambda shape: np.prod(shape))
         self.resolution = resolution if resolution is not None else max_shape[1]
@@ -106,9 +106,8 @@ class TFRecordDataset:
             self._np_labels = self._np_labels[:, :max_label_size]
         self.label_size = self._np_labels.shape[1]
         self.label_dtype = self._np_labels.dtype.name
-
         
-        beauty_rates_np = load_csv()
+        beauty_rates_np = load_csv(self.tfrecord_dir)
         
         # Build TF expressions.
         with tf.name_scope('Dataset'), tf.device('/cpu:0'):
@@ -132,7 +131,8 @@ class TFRecordDataset:
                     continue
                 dset = tf.data.TFRecordDataset(tfr_file, compression_type='', buffer_size=buffer_mb<<20)
                 dset = dset.map(parse_tfrecord_tf, num_parallel_calls=num_threads)
-                dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset, tf_rates_dataset))
+                #dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset, tf_rates_dataset))
+                dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset))
                 bytes_per_item = np.prod(tfr_shape) * np.dtype(self.dtype).itemsize
                 if shuffle_mb > 0:
                     dset = dset.shuffle(((shuffle_mb << 20) - 1) // bytes_per_item + 1)
@@ -156,8 +156,8 @@ class TFRecordDataset:
 
     # Get next minibatch as TensorFlow expressions.
     def get_minibatch_tf(self): # => images, labels
-        images, labels, beauty_rates = self._tf_iterator.get_next()
-        return images, labels, beauty_rates
+        images, labels = self._tf_iterator.get_next()
+        return images, labels
 
     # Get next minibatch as NumPy arrays.
     def get_minibatch_np(self, minibatch_size, lod=0): # => images, labels
@@ -256,16 +256,17 @@ def load_dataset(class_name='dataset.TFRecordDataset', data_dir=None, verbose=Fa
 #----------------------------------------------------------------------------
 # Helper func for constructing a numpy of beauty rates from a csv file
 
-def load_csv(folder_dataset=None):
+def load_csv(dataset_folder):
     # Dictionary to load dataset
     # key: image name
     # value: list of 60 beauty rates from raters
     dataset_dict = {}
     
-    folder_dataset = 'CelebA-HQ'
+    # csv will be stored in the parent folder
+    csv_folder = os.path.dirname(dataset_folder)
     
     # read raters csv file
-    with open(os.path.join('../datasets',folder_dataset,'All_Ratings.csv'), 'r') as csvfile:
+    with open(os.path.join(csv_folder,'All_Ratings.csv'), 'r') as csvfile:
         
         raw_dataset = csv.reader(csvfile, delimiter=',', quotechar='|')
         for i, row in enumerate(raw_dataset):
@@ -283,10 +284,12 @@ def load_csv(folder_dataset=None):
     for key, value in dataset_dict.items():
         beauty_rates_list.append(value)
                     
-    # convert dataset_dict to a numpy of beauty rates in shape of [30000,60]
+    # convert dataset_dict to a numpy of beauty rates in shape of [images,1]
     beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32) / 5.0)
 
-    # change shape from [30000,1,60] to [30000,60]
+    # change shape from [images,1,60] to [images,60]
     beauty_rates_np = np.squeeze(beauty_rates_np, axis=1)
+    
+    #print(beauty_rates_np.shape)
     
     return beauty_rates_np

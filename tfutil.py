@@ -13,11 +13,25 @@ import imp
 import numpy as np
 from collections import OrderedDict
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 
 #----------------------------------------------------------------------------
 # Convenience.
 
 def run(*args, **kwargs): # Run the specified ops in the default session.
+    
+    # GUI tensorflow debugger using tensorboard
+    #session = tf.Session()
+    #with tf_debug.TensorBoardDebugWrapperSession(session, 'carmen:6064') as sess:
+    #    sess.run(*args, **kwargs)
+    #return
+    
+    # CLI tensorflow debugger
+    #session = tf.get_default_session()
+    #with tf_debug.LocalCLIDebugWrapperSession(session) as sess:
+    #    sess.run(*args, **kwargs)
+    #return
+    
     return tf.get_default_session().run(*args, **kwargs)
 
 def is_tf_expression(x):
@@ -199,11 +213,11 @@ def _create_autosummary_var(name, value_expr):
 _summary_merge_op = None
 
 def save_summaries(filewriter, global_step=None):
-    global _summary_merge_op
-    if _summary_merge_op is None:
-        finalize_autosummaries()
-        with tf.device(None), tf.control_dependencies(None):
-            _summary_merge_op = tf.summary.merge_all()
+    #global _summary_merge_op
+    #if _summary_merge_op is None:
+    #    finalize_autosummaries()
+    #    with tf.device(None), tf.control_dependencies(None):
+    #        _summary_merge_op = tf.summary.merge_all()
     filewriter.add_summary(_summary_merge_op.eval(), global_step)
 
 #----------------------------------------------------------------------------
