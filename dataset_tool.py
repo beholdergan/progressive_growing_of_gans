@@ -621,16 +621,13 @@ def load_csv(dataset_folder):
     
     beauty_rates_list = []
     
-    # sort by key names
-    keylist = mydict.keys()
-    keylist.sort()
-    
     # move dict to lists, convert beauty rates to numpy ranged in [0,1]
-    for key in keylist():
+    keylist = dataset_dict.keys()
+    for key in sorted(keylist):
         beauty_rates_list.append(dataset_dict[key])
                     
     # convert dataset_dict to a numpy of beauty rates in shape of [images,1]
-    beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32) / 5.0)
+    beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32))
     
     # change shape from [images,1,60] to [images,60]
     beauty_rates_np = np.squeeze(beauty_rates_np, axis=1)
@@ -694,6 +691,14 @@ def create_from_images_cond(tfrecord_dir, image_dir, shuffle):
             else:
                 img = img.transpose(2, 0, 1) # HWC => CHW
             tfr.add_image(img)
+            
+            # validation of image and beauty rates pairing
+            #if idx%300 == 0:
+            #    im = PIL.Image.open(image_filenames[order[idx]])
+            #    im.save(os.path.basename(image_filenames[order[idx]]))
+            #    print("image {} beauty rates:".format(image_filenames[order[idx]]))
+            #    print(img.shape)
+            #    print(beauty_rates[order[idx]])
         tfr.add_labels(beauty_rates[order])
 
 #----------------------------------------------------------------------------
