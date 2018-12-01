@@ -620,9 +620,14 @@ def load_csv(dataset_folder):
                 dataset_dict[row[1]] = [[float(row[2])]]
     
     beauty_rates_list = []
+    
+    # sort by key names
+    keylist = mydict.keys()
+    keylist.sort()
+    
     # move dict to lists, convert beauty rates to numpy ranged in [0,1]
-    for key, value in dataset_dict.items():
-        beauty_rates_list.append(value)
+    for key in keylist():
+        beauty_rates_list.append(dataset_dict[key])
                     
     # convert dataset_dict to a numpy of beauty rates in shape of [images,1]
     beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32) / 5.0)
