@@ -682,6 +682,17 @@ def create_from_images_cond(tfrecord_dir, image_dir, shuffle):
     
     beauty_rates = load_csv(tfrecord_dir)
     
+    # create numpy of [len(images),1] composed of mean values ranged in [0,10]
+    beauty_rates_mean = np.mean(beauty_rates, axis=1)*10
+    # round values into their closest integers
+    beauty_rates_mean = (np.rint(beauty_rates_mean)).astype(int)
+    
+    # create one hot vector and fill it
+    beauty_rates_one_hot = np.zeros((beauty_rates.shape[0], np.max(beauty_rates_mean) + 1), dtype=np.float32)
+    beauty_rates_one_hot[np.arange(beauty_rates.shape[0]), beauty_rates_mean] = 1.0
+    
+    print("one_hot size: {}".format(beauty_rates_one_hot.shape))
+    
     with TFRecordExporter(tfrecord_dir, len(image_filenames)) as tfr:
         order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
         for idx in range(order.size):
@@ -699,7 +710,11 @@ def create_from_images_cond(tfrecord_dir, image_dir, shuffle):
             #    print("image {} beauty rates:".format(image_filenames[order[idx]]))
             #    print(img.shape)
             #    print(beauty_rates[order[idx]])
-        tfr.add_labels(beauty_rates[order])
+            #    print("mean:")
+            #    print(beauty_rates_mean[order[idx]])
+            #    print(beauty_rates_one_hot[order[idx]])
+
+        tfr.add_labels(beauty_rates_one_hot[order])
 
 #----------------------------------------------------------------------------
 
