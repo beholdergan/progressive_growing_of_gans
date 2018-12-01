@@ -158,7 +158,7 @@ def train_progressive_gan(
     training_set = dataset.load_dataset(data_dir=config.data_dir, verbose=True, **config.dataset)
 
     # Construct networks.
-    with tf.device('/gpu:0'):
+    with tf.device('/gpu:1'):
         if resume_run_id is not None:
             network_pkl = misc.locate_network_pkl(resume_run_id, resume_snapshot)
             print('Loading networks from "%s"...' % network_pkl)

@@ -29,7 +29,7 @@ env = EasyDict()        # Environment variables, set by the main program in trai
 
 tf_config['graph_options.place_pruned_graph']   = True      # False (default) = Check that all ops are available on the designated device. True = Skip the check for ops that are not used.
 #tf_config['gpu_options.allow_growth']          = False     # False (default) = Allocate all GPU memory at the beginning. True = Allocate only as much GPU memory as needed.
-#env.CUDA_VISIBLE_DEVICES                       = '0'       # Unspecified (default) = Use all available GPUs. List of ints = CUDA device numbers to use.
+env.CUDA_VISIBLE_DEVICES                       = '1'       # Unspecified (default) = Use all available GPUs. List of ints = CUDA device numbers to use.
 env.TF_CPP_MIN_LOG_LEVEL                        = '1'       # 0 (default) = Print all available debug info from TensorFlow. 1 = Print warnings and errors, but disable debug info.
 
 #----------------------------------------------------------------------------
@@ -91,7 +91,7 @@ desc += '-beautydataset';       dataset = EasyDict(tfrecord_dir='beauty_dataset/
 #desc += '-lsun-tvmonitor';      dataset = EasyDict(tfrecord_dir='lsun-tvmonitor-100k');      train.mirror_augment = True
 
 # Conditioning & snapshot options.
-#desc += '-cond'; dataset.max_label_size = 'full' # conditioned on full label
+desc += '-cond'; dataset.max_label_size = 'full' # conditioned on full label
 #desc += '-cond1'; dataset.max_label_size = 1 # conditioned on first component of the label
 #desc += '-g4k'; grid.size = '4k'
 #desc += '-grpc'; grid.layout = 'row_per_class'

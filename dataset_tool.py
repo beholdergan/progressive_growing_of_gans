@@ -15,6 +15,7 @@ import traceback
 import numpy as np
 import tensorflow as tf
 import PIL.Image
+import csv
 
 import tfutil
 import dataset
@@ -595,6 +596,44 @@ def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_task
 
 #----------------------------------------------------------------------------
 
+def load_csv(dataset_folder):
+    # Dictionary to load dataset
+    # key: image name
+    # value: list of 60 beauty rates from raters
+    dataset_dict = {}
+    
+    # csv will be stored in the parent folder
+    csv_folder = os.path.dirname(dataset_folder)
+    
+    # read raters csv file
+    with open(os.path.join(csv_folder,'All_Ratings.csv'), 'r') as csvfile:
+        
+        raw_dataset = csv.reader(csvfile, delimiter=',', quotechar='|')
+        for i, row in enumerate(raw_dataset):
+            row = ','.join(row)
+            row = row.split(',')
+            
+            # create list of rates for each image
+            if row[1] in dataset_dict:
+                dataset_dict[row[1]][0].append(float(row[2]))
+            else:
+                dataset_dict[row[1]] = [[float(row[2])]]
+    
+    beauty_rates_list = []
+    # move dict to lists, convert beauty rates to numpy ranged in [0,1]
+    for key, value in dataset_dict.items():
+        beauty_rates_list.append(value)
+                    
+    # convert dataset_dict to a numpy of beauty rates in shape of [images,1]
+    beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32) / 5.0)
+    
+    # change shape from [images,1,60] to [images,60]
+    beauty_rates_np = np.squeeze(beauty_rates_np, axis=1)
+    
+    return beauty_rates_np
+
+#----------------------------------------------------------------------------
+
 def create_from_images(tfrecord_dir, image_dir, shuffle):
     print('Loading images from "%s"' % image_dir)
     image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
@@ -620,6 +659,37 @@ def create_from_images(tfrecord_dir, image_dir, shuffle):
             else:
                 img = img.transpose(2, 0, 1) # HWC => CHW
             tfr.add_image(img)
+
+#----------------------------------------------------------------------------
+
+def create_from_images_cond(tfrecord_dir, image_dir, shuffle):
+    print('Loading images from "%s"' % image_dir)
+    image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    if len(image_filenames) == 0:
+        error('No input images found')
+        
+    img = np.asarray(PIL.Image.open(image_filenames[0]))
+    resolution = img.shape[0]
+    channels = img.shape[2] if img.ndim == 3 else 1
+    if img.shape[1] != resolution:
+        error('Input images must have the same width and height')
+    if resolution != 2 ** int(np.floor(np.log2(resolution))):
+        error('Input image resolution must be a power-of-two')
+    if channels not in [1, 3]:
+        error('Input images must be stored as RGB or grayscale')
+    
+    beauty_rates = load_csv(tfrecord_dir)
+    
+    with TFRecordExporter(tfrecord_dir, len(image_filenames)) as tfr:
+        order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
+        for idx in range(order.size):
+            img = np.asarray(PIL.Image.open(image_filenames[order[idx]]))
+            if channels == 1:
+                img = img[np.newaxis, :, :] # HW => CHW
+            else:
+                img = img.transpose(2, 0, 1) # HWC => CHW
+            tfr.add_image(img)
+        tfr.add_labels(beauty_rates[order])
 
 #----------------------------------------------------------------------------
 
@@ -719,6 +789,12 @@ def execute_cmdline(argv):
                                             'create_from_images datasets/mydataset myimagedir')
     p.add_argument(     'tfrecord_dir',     help='New dataset directory to be created')
     p.add_argument(     'image_dir',        help='Directory containing the images')
+    p.add_argument(     '--shuffle',        help='Randomize image order (default: 1)', type=int, default=1)
+
+    p = add_command(    'create_from_images_cond', 'Create dataset from a directory full of images with conditioning.',
+                                            'create_from_images_cond datasets/mydataset myimagedir')
+    p.add_argument(     'tfrecord_dir',     help='New dataset directory to be created')
+    p.add_argument(     'image_dir',        help='Directory containing the images, csv file should be adjacent to them')
     p.add_argument(     '--shuffle',        help='Randomize image order (default: 1)', type=int, default=1)
 
     p = add_command(    'create_from_hdf5', 'Create dataset from legacy HDF5 archive.',
