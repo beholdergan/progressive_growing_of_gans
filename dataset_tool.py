@@ -627,7 +627,7 @@ def load_csv(dataset_folder):
         beauty_rates_list.append(dataset_dict[key])
                     
     # convert dataset_dict to a numpy of beauty rates in shape of [images,1]
-    beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32))
+    beauty_rates_np = (np.array(beauty_rates_list, dtype=np.float32) / 5.0)
     
     # change shape from [images,1,60] to [images,60]
     beauty_rates_np = np.squeeze(beauty_rates_np, axis=1)
