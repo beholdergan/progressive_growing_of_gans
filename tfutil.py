@@ -31,7 +31,7 @@ def run(*args, **kwargs): # Run the specified ops in the default session.
     #with tf_debug.LocalCLIDebugWrapperSession(session) as sess:
     #    sess.run(*args, **kwargs)
     #return
-    
+        
     return tf.get_default_session().run(*args, **kwargs)
 
 def is_tf_expression(x):
