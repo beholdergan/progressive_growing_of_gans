@@ -6,10 +6,10 @@ from config import EasyDict
 import tfutil
 
 # manual parameters
-run_id = "022-pgan-beautydataset-cond-preset-v2-1gpu-fp32"
+run_id = "075-celebahq-run"
 result_subdir = misc.create_result_subdir('results', 'inference_test')
 num_of_examples = 500
-num_of_labels = 10
+num_of_labels = 11
 
 misc.init_output_logging()
 
