@@ -6,10 +6,10 @@ from config import EasyDict
 import tfutil
 
 # manual parameters
-run_id = "075-celebahq-run"
+run_id = "dean_cond_batch16"
 result_subdir = misc.create_result_subdir('results', 'inference_test')
 num_of_examples = 500
-num_of_labels = 11
+num_of_labels = 9
 
 misc.init_output_logging()
 
