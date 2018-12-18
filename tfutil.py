@@ -21,18 +21,22 @@ from tensorflow.python import debug as tf_debug
 def run(*args, **kwargs): # Run the specified ops in the default session.
     
     # GUI tensorflow debugger using tensorboard
-    #session = tf.Session()
-    #with tf_debug.TensorBoardDebugWrapperSession(session, 'carmen:6064') as sess:
-    #    sess.run(*args, **kwargs)
-    #return
+    session = tf.Session()
+    with tf_debug.TensorBoardDebugWrapperSession(session, 'localhost:6064') as sess:
+        sess.run(*args, **kwargs)
+    return
     
     # CLI tensorflow debugger
-    #session = tf.get_default_session()
+    #session = tf.Session()
     #with tf_debug.LocalCLIDebugWrapperSession(session) as sess:
     #    sess.run(*args, **kwargs)
     #return
-        
-    return tf.get_default_session().run(*args, **kwargs)
+    
+    #with tf.Session() as sess:
+    #    import pdb
+    #    pdb.set_trace()
+
+    #return tf.get_default_session().run(*args, **kwargs)
 
 def is_tf_expression(x):
     return isinstance(x, tf.Tensor) or isinstance(x, tf.Variable) or isinstance(x, tf.Operation)

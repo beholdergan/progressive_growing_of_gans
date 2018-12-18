@@ -172,6 +172,12 @@ def G_paper(
     
     latents_in.set_shape([None, latent_size])
     labels_in.set_shape([None, label_size])
+
+    #labels_mean = tf.reduce_mean(labels_in, 1)
+    #labels_mean = tf.expand_dims(labels_mean, 1)
+    #labels_mean = tf.multiply(labels_mean, 100.0)
+    #combo_in = tf.cast(tf.concat([latents_in, labels_mean], axis=1), dtype)
+    
     combo_in = tf.cast(tf.concat([latents_in, labels_in], axis=1), dtype)
     lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
 

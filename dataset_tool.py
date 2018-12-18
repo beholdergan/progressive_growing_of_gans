@@ -888,6 +888,49 @@ def create_from_images_cond(tfrecord_dir, image_dir, shuffle):
 
 #----------------------------------------------------------------------------
 
+def create_from_images_cond_continuous(tfrecord_dir, image_dir, shuffle):
+    print('Loading images from "%s"' % image_dir)
+    image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    if len(image_filenames) == 0:
+        error('No input images found')
+        
+    img = np.asarray(PIL.Image.open(image_filenames[0]))
+    resolution = img.shape[0]
+    channels = img.shape[2] if img.ndim == 3 else 1
+    if img.shape[1] != resolution:
+        error('Input images must have the same width and height')
+    if resolution != 2 ** int(np.floor(np.log2(resolution))):
+        error('Input image resolution must be a power-of-two')
+    if channels not in [1, 3]:
+        error('Input images must be stored as RGB or grayscale')
+    
+    beauty_rates = load_csv(tfrecord_dir)
+
+    with TFRecordExporter(tfrecord_dir, len(image_filenames)) as tfr:
+        order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
+        for idx in range(order.size):
+            img = np.asarray(PIL.Image.open(image_filenames[order[idx]]))
+            if channels == 1:
+                img = img[np.newaxis, :, :] # HW => CHW
+            else:
+                img = img.transpose(2, 0, 1) # HWC => CHW
+            tfr.add_image(img)
+            
+            # validation of image and beauty rates pairing
+            #if idx%300 == 0:
+            #    im = PIL.Image.open(image_filenames[order[idx]])
+            #    im.save(os.path.basename(image_filenames[order[idx]]))
+            #    print("image {} beauty rates:".format(image_filenames[order[idx]]))
+            #    print(img.shape)
+            #    print(beauty_rates[order[idx]])
+            #    print("mean:")
+            #    print(beauty_rates_mean[order[idx]])
+            #    print(beauty_rates_one_hot[order[idx]])
+
+        tfr.add_labels(beauty_rates[order])
+
+#----------------------------------------------------------------------------
+
 def create_from_hdf5(tfrecord_dir, hdf5_filename, shuffle):
     print('Loading HDF5 archive from "%s"' % hdf5_filename)
     import h5py # conda install h5py
@@ -995,6 +1038,12 @@ def execute_cmdline(argv):
     p.add_argument(     '--shuffle',        help='Randomize image order (default: 1)', type=int, default=1)
 
     p = add_command(    'create_from_images_cond', 'Create dataset from a directory full of images with conditioning.',
+                                            'create_from_images_cond datasets/mydataset myimagedir')
+    p.add_argument(     'tfrecord_dir',     help='New dataset directory to be created')
+    p.add_argument(     'image_dir',        help='Directory containing the images, csv file should be adjacent to them')
+    p.add_argument(     '--shuffle',        help='Randomize image order (default: 1)', type=int, default=1)
+
+    p = add_command(    'create_from_images_cond_continuous', 'Create dataset from a directory full of images with continuous conditioning.',
                                             'create_from_images_cond datasets/mydataset myimagedir')
     p.add_argument(     'tfrecord_dir',     help='New dataset directory to be created')
     p.add_argument(     'image_dir',        help='Directory containing the images, csv file should be adjacent to them')

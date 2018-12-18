@@ -2,8 +2,8 @@ import os
 from PIL import Image
 
 # select dataset folder to check and destination folder to put output images in
-path = '../datasets/400faces/img'
-dest_path = '../datasets/400faces/img_scaled'
+path = '../datasets/beauty_dataset/img/beauty_dataset'
+dest_path = '../datasets/beauty_dataset/img/beauty_dataset_scaled'
 
 # destination resolution
 dest_res = 2 ** 8
