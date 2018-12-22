@@ -7,6 +7,7 @@
 
 import numpy as np
 import tensorflow as tf
+import pdb
 
 # NOTE: Do not import any application-specific modules here!
 
@@ -239,6 +240,7 @@ def G_paper(
 
 def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
+    labels_in,                          # Second input: Labels [minibatch, label_size].
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
@@ -260,9 +262,11 @@ def D_paper(
     act = leaky_relu
 
     images_in.set_shape([None, num_channels, resolution, resolution])
+    labels_in.set_shape([None, label_size])
+    
     images_in = tf.cast(images_in, dtype)
     lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
-
+    
     # Building blocks.
     def fromrgb(x, res): # res = 2..resolution_log2
         with tf.variable_scope('FromRGB_lod%d' % (resolution_log2 - res)):
@@ -289,6 +293,17 @@ def D_paper(
                 with tf.variable_scope('Dense1'):
                     x = apply_bias(dense(x, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
             return x
+    
+    # pad the labels to convert shape of (?, label_size) to (?, 1, resolution, resolution)
+    delta_x = int((resolution - label_size)/2) # number of zeros to add on sides
+    delta_y = int(resolution / 2) # number of zeros to add upwards and downwards
+    pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
+    labels_in = tf.expand_dims(labels_in, 1) # (?, label_size) => (?, 1, label_size)
+    labels_in = tf.pad(labels_in, pad_matrix, "CONSTANT") # (?, 1, label_size) => (?, resolution, resolution)
+    labels_in = tf.expand_dims(labels_in, 1) # (?, resolution, resolution) => (?, 1, resolution, resolution)
+    
+    # concatenate labels to images to support unsupervised conditioning
+    images_in = tf.concat([images_in, labels_in], axis=1) # final shape: (?, 4, resolution, resolution)
     
     # Linear structure: simple but inefficient.
     if structure == 'linear':

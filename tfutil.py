@@ -14,6 +14,7 @@ import numpy as np
 from collections import OrderedDict
 import tensorflow as tf
 from tensorflow.python import debug as tf_debug
+import pdb
 
 #----------------------------------------------------------------------------
 # Convenience.
@@ -479,7 +480,7 @@ class Network:
                 self.input_names.append(param.name)
         self.num_inputs = len(self.input_names)
         assert self.num_inputs >= 1
-
+        
         # Choose name and scope.
         if self.name is None:
             self.name = self._build_func_name
@@ -492,7 +493,6 @@ class Network:
                 with tf.control_dependencies(None): # ignore surrounding control_dependencies
                     self.input_templates = [tf.placeholder(tf.float32, name=name) for name in self.input_names]
                     out_expr = self._build_func(*self.input_templates, is_template_graph=True, **self.static_kwargs)
-            
         # Collect outputs.
         assert is_tf_expression(out_expr) or isinstance(out_expr, tuple)
         self.output_templates = [out_expr] if is_tf_expression(out_expr) else list(out_expr)
