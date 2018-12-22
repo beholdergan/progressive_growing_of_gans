@@ -4,13 +4,19 @@ import numpy as np
 import pdb
 from config import EasyDict
 import tfutil
+import argparse
+
+# initialize parser arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--results_dir', '-results_dir', help='name of training experiment folder', default='dean_cond_batch16', type=str)
+parser.add_argument('--outputs', '-outputs', help='how many sequences to print', default=500, type=int)
+parser.add_argument('--labels_size', '-labels_size', help='size of labels vector', default=60, type=int)
+parser.add_argument('--beauty_levels', '-beauty_levels', help='number of possible beauty levels', default=5, type=int)
+parser.add_argument('--classification', dest='classification', help='if asked, use classification conditioning instead of original', action='store_true')
+args = parser.parse_args()
 
 # manual parameters
-run_id = "dean_cond_batch16"
 result_subdir = misc.create_result_subdir('results', 'inference_test')
-num_of_examples = 500
-num_of_labels = 9
-
 misc.init_output_logging()
 
 # initialize TensorFlow
@@ -24,37 +30,53 @@ tf_config['graph_options.place_pruned_graph'] = True # False (default) = Check t
 tfutil.init_tf(tf_config)
 
 #load network
-network_pkl = misc.locate_network_pkl(run_id)
+network_pkl = misc.locate_network_pkl(args.results_dir)
 print('Loading network from "%s"...' % network_pkl)
-G, D, Gs = misc.load_network_pkl(run_id, None)
+G, D, Gs = misc.load_network_pkl(args.results_dir, None)
 
-# iterate random seed to generate [num_of_examples] examples of GIFs
-for j in range(num_of_examples):
-
-    random_seed = j # change it to control the generated latent vector
-
-    # initialize random seed
-    np.random.seed(random_seed)
-    random_state = np.random.RandomState(random_seed)
-
+# sample <args.output> sequences
+for j in range(args.outputs):
+    
+    # change the random seed in every iteration
+    np.random.seed(j)
+    
     # generate random noise
-    latents = misc.random_latents(1, Gs, random_state=random_state)
-
-    for i in range(num_of_labels):
-        
-        # initiate conditioned label
-        labels = np.zeros([1, num_of_labels], np.float32)
-        labels[0][i] = 1.0
-        
-        # infer conditioned noise to receive image
-        image = Gs.run(latents, labels, minibatch_size=1, num_gpus=1, out_mul=127.5, out_add=127.5, out_shrink=1, out_dtype=np.uint8)
-
-        # save generated image as 'i.png' and noise vector as noise_vector.txt
-        misc.save_image_grid(image, os.path.join(result_subdir, '{}_{}.png'.format('%04d' % j,i)), [0,255], [1,1])
-
-        # save latent space for later use
-        np.save(os.path.join(result_subdir,'latents_vector.npy'), latents)
-
+    latents = misc.random_latents(1, Gs, random_state=np.random.RandomState(j))
+    
+    # if classification asked, perform conditioning using classification vector
+    if args.classification:
+        for i in range(args.labels_size):
+            
+            # initiate conditioned label
+            labels = np.zeros([1, args.labels_size], np.float32)
+            labels[0][i] = 1.0
+            
+            # infer conditioned noise to receive image
+            image = Gs.run(latents, labels, minibatch_size=1, num_gpus=1, out_mul=127.5, out_add=127.5, out_shrink=1, out_dtype=np.uint8)
+            
+            # save generated image as 'i.png' and noise vector as noise_vector.txt
+            misc.save_image_grid(image, os.path.join(result_subdir, '{}_{}.png'.format('%04d' % j,i)), [0,255], [1,1])
+            
+            # save latent space for later use
+            np.save(os.path.join(result_subdir,'latents_vector.npy'), latents)
+            
+    # classification is not asked, we will use varied conditioning vector
+    else:
+        for i in range(args.beauty_levels):
+            
+            # initiate beauty rates label
+            labels = np.random.normal(0.2*(i+1), 0.08, [1, args.labels_size])
+            labels = np.clip(labels, 0.0, 1.0)
+            
+            # infer conditioned noise to receive image
+            image = Gs.run(latents, labels, minibatch_size=1, num_gpus=1, out_mul=127.5, out_add=127.5, out_shrink=1, out_dtype=np.uint8)
+            
+            # save generated image as 'i.png' and noise vector as noise_vector.txt
+            misc.save_image_grid(image, os.path.join(result_subdir, '{}_{}.png'.format('%04d' % j,i)), [0,255], [1,1])
+            
+            # save latent space for later use
+            np.save(os.path.join(result_subdir,'latents_vector.npy'), latents)
+    
     if j % 10 == 0:
-        print("saved {}/{} images".format(j,num_of_examples))
+        print("saved {}/{} images".format(j,args.outputs))
 
