@@ -294,16 +294,30 @@ def D_paper(
                     x = apply_bias(dense(x, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
             return x
     
-    # pad the labels to convert shape of (?, label_size) to (?, 1, resolution, resolution)
-    delta_x = int((resolution - label_size)/2) # number of zeros to add on sides
+    # create a vector of means from beauty rates vector
+    number_of_means = 4 # decide how many values we want at the end
+    
+    # split the beauty rates vector into a few vectors, so in case of 4, we get 4 vectors of 15 values
+    splited_beauty_rates = tf.split(labels_in, number_of_means*[int(label_size/number_of_means)], 1)
+    
+    # calcute mean of each vector, splited_beauty_rates will be a list of single mean tensors
+    for i in range(number_of_means):
+        splited_beauty_rates[i] = tf.expand_dims(splited_beauty_rates[i], 1) # (?, label_size/number_of_means) => (?, 1, label_size/number_of_means)
+        splited_beauty_rates[i] = tf.reduce_mean(splited_beauty_rates[i], 2) # (?, 1, label_size/number_of_means) => (?, 1)
+    
+    # concatenate all means tensors into one tensor, so it will get a shape of (?, number_of_means)
+    means_tensor = tf.concat(splited_beauty_rates, 1)
+    
+    # pad the labels to convert shape of (?, number_of_means) to (?, 1, resolution, resolution)
+    delta_x = int((resolution - number_of_means)/2) # number of zeros to add on sides
     delta_y = int(resolution / 2) # number of zeros to add upwards and downwards
     pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
-    labels_in = tf.expand_dims(labels_in, 1) # (?, label_size) => (?, 1, label_size)
-    labels_in = tf.pad(labels_in, pad_matrix, "CONSTANT") # (?, 1, label_size) => (?, resolution, resolution)
-    labels_in = tf.expand_dims(labels_in, 1) # (?, resolution, resolution) => (?, 1, resolution, resolution)
+    means_tensor = tf.expand_dims(means_tensor, 1) # (?, number_of_means) => (?, 1, number_of_means)
+    means_tensor = tf.pad(means_tensor, pad_matrix, "CONSTANT") # (?, 1, number_of_means) => (?, resolution, resolution)
+    means_tensor = tf.expand_dims(means_tensor, 1) # (?, resolution, resolution) => (?, 1, resolution, resolution)
     
     # concatenate labels to images to support unsupervised conditioning
-    images_in = tf.concat([images_in, labels_in], axis=1) # final shape: (?, 4, resolution, resolution)
+    images_in = tf.concat([images_in, means_tensor], axis=1) # final shape: (?, 4, resolution, resolution)
     
     # Linear structure: simple but inefficient.
     if structure == 'linear':
