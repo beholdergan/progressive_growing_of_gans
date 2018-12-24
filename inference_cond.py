@@ -62,10 +62,13 @@ for j in range(args.outputs):
             
     # classification is not asked, we will use varied conditioning vector
     else:
+    
+        min_beauty_level = 1.0 / args.beauty_levels
+        std = min_beauty_level / 2.0 - (min_beauty_level / 10.0)
         for i in range(args.beauty_levels):
             
             # initiate beauty rates label
-            labels = np.random.normal(0.2*(i+1), 0.08, [1, args.labels_size])
+            labels = np.random.normal(min_beauty_level*(i+1), std, [1, args.labels_size])
             labels = np.clip(labels, 0.0, 1.0)
             
             # infer conditioned noise to receive image
