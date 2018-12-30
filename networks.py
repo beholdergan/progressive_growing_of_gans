@@ -307,27 +307,39 @@ def D_paper(
     
     # concatenate all means tensors into one tensor, so it will get a shape of (?, number_of_means)
     means_tensor = tf.concat(splited_beauty_rates, 1)
-    
-    # pad the labels to convert shape of (?, number_of_means) to (?, 1, resolution, resolution)
-    delta_x = int((resolution - number_of_means)/2) # number of zeros to add on sides
-    delta_y = int(resolution / 2) # number of zeros to add upwards and downwards
-    pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
     means_tensor = tf.expand_dims(means_tensor, 1) # (?, number_of_means) => (?, 1, number_of_means)
-    means_tensor = tf.pad(means_tensor, pad_matrix, "CONSTANT") # (?, 1, number_of_means) => (?, resolution, resolution)
-    means_tensor = tf.expand_dims(means_tensor, 1) # (?, resolution, resolution) => (?, 1, resolution, resolution)
-    
-    # concatenate labels to images to support unsupervised conditioning
-    images_in = tf.concat([images_in, means_tensor], axis=1) # final shape: (?, 4, resolution, resolution)
     
     # Linear structure: simple but inefficient.
     if structure == 'linear':
         img = images_in
-        x = fromrgb(img, resolution_log2)
+        
+        # pad the labels to convert shape of (?, 1, number_of_means) to (?, 1, resolution, resolution)
+        delta_x = int((resolution - number_of_means)/2) # number of zeros to add on sides
+        delta_y = int(resolution / 2) # number of zeros to add upwards and downwards
+        pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
+        means_in = tf.pad(means_tensor, pad_matrix, "CONSTANT") # (?, 1, number_of_means) => (?, resolution, resolution)
+        means_in = tf.expand_dims(means_in, 1) # (?, resolution, resolution) => (?, 1, resolution, resolution)
+        
+        # concatenate images to means
+        input_in = tf.concat([images_in, means_in], axis=1) # final shape: (?, 4, resolution, resolution)
+        x = fromrgb(input_in, resolution_log2)
         for res in range(resolution_log2, 2, -1):
             lod = resolution_log2 - res
             x = block(x, res)
             img = downscale2d(img)
-            y = fromrgb(img, res - 1)
+            
+            # pad the labels to convert shape of (?, 1, number_of_means) to (?, 1, resolution, resolution)
+            iter_res = 2 ** (res - 1)
+            delta_x = int((iter_res - number_of_means)/2) # number of zeros to add on sides
+            delta_y = int(iter_res / 2) # number of zeros to add upwards and downwards
+            pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
+            means_in = tf.pad(means_tensor, pad_matrix, "CONSTANT") # (?, 1, number_of_means) => (?, iter_res, iter_res)
+            means_in = tf.expand_dims(means_in, 1) # (?, iter_res, iter_res) => (?, 1, iter_res, iter_res)
+            
+            # concatenate images to means
+            input_in = tf.concat([img, means_in], axis=1) # final shape: (?, 4, iter_res, iter_res)
+            
+            y = fromrgb(input_in, res - 1)
             with tf.variable_scope('Grow_lod%d' % lod):
                 x = lerp_clip(x, y, lod_in - lod)
         combo_out = block(x, 2)
@@ -335,10 +347,35 @@ def D_paper(
     # Recursive structure: complex but efficient.
     if structure == 'recursive':
         def grow(res, lod):
-            x = lambda: fromrgb(downscale2d(images_in, 2**lod), res)
+            
+            # pad the labels to convert shape of (?, 1, number_of_means) to (?, 1, 2**res, 2**res)
+            delta_x = int((2**res - number_of_means)/2) # number of zeros to add on sides
+            delta_y = int(2**res / 2) # number of zeros to add upwards and downwards
+            pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
+            means_in = tf.pad(means_tensor, pad_matrix, "CONSTANT") # (?, 1, number_of_means) => (?, 2**res, 2**res)
+            means_in = tf.expand_dims(means_in, 1) # (?, 2**res, 2**res) => (?, 1, 2**res, 2**res)
+            
+            # concatenate images to means
+            img_downscaled = downscale2d(images_in, 2**lod)
+            input_in = tf.concat([img_downscaled, means_in], axis=1) # final shape: (?, 4, 2**res, 2**res)
+            
+            x = lambda: fromrgb(input_in, res)
             if lod > 0: x = cset(x, (lod_in < lod), lambda: grow(res + 1, lod - 1))
             x = block(x(), res); y = lambda: x
-            if res > 2: y = cset(y, (lod_in > lod), lambda: lerp(x, fromrgb(downscale2d(images_in, 2**(lod+1)), res - 1), lod_in - lod))
+            
+            if res > 2: 
+                # pad the labels to convert shape of (?, 1, number_of_means) to (?, 1, 2**(res-1), 2**(res-1))
+                delta_x = int((2**(res-1) - number_of_means)/2) # number of zeros to add on sides
+                delta_y = int(2**(res-1) / 2) # number of zeros to add upwards and downwards
+                pad_matrix = tf.constant([[0,0],[delta_y-1, delta_y], [delta_x, delta_x]], dtype='int32')
+                means_in = tf.pad(means_tensor, pad_matrix, "CONSTANT") # (?, 1, number_of_means) => (?, 2**(res-1), 2**(res-1))
+                means_in = tf.expand_dims(means_in, 1) # (?, 2**(res-1), 2**(res-1)) => (?, 1, 2**(res-1), 2**(res-1))
+                
+                # concatenate images to means
+                img_downscaled = downscale2d(images_in, 2**(lod+1))
+                input_in = tf.concat([img_downscaled, means_in], axis=1) # final shape: (?, 4, 2**(res-1), 2**(res-1))
+                
+                y = cset(y, (lod_in > lod), lambda: lerp(x, fromrgb(input_in, res - 1), lod_in - lod))
             return y()
         combo_out = grow(2, resolution_log2 - 2)
 
