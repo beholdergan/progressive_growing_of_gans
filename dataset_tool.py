@@ -16,6 +16,7 @@ import numpy as np
 import tensorflow as tf
 import PIL.Image
 import csv
+import pdb
 
 import tfutil
 import dataset
@@ -731,19 +732,8 @@ def create_celebahq_cond(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num
         md5.update(img.tobytes())
         assert md5.hexdigest() == fields['final_md5'][idx]
         return img
-
+    
     beauty_rates = load_csv(tfrecord_dir)
-    
-    # create numpy of [len(images),1] composed of mean values ranged in [0,10]
-    beauty_rates_mean = np.mean(beauty_rates, axis=1)*10
-    # round values into their closest integers
-    beauty_rates_mean = (np.rint(beauty_rates_mean)).astype(int)
-    
-    # create one hot vector and fill it
-    beauty_rates_one_hot = np.zeros((beauty_rates.shape[0], np.max(beauty_rates_mean) + 1), dtype=np.float32)
-    beauty_rates_one_hot[np.arange(beauty_rates.shape[0]), beauty_rates_mean] = 1.0
-    
-    print("one_hot size: {}".format(beauty_rates_one_hot.shape))
     
     with TFRecordExporter(tfrecord_dir, indices.size) as tfr:
         order = tfr.choose_shuffled_order()
@@ -762,7 +752,7 @@ def create_celebahq_cond(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num
                 #    print(beauty_rates_mean[order[idx]])
                 #    print(beauty_rates_one_hot[order[idx]])
         
-        tfr.add_labels(beauty_rates_one_hot[order])
+        tfr.add_labels(beauty_rates[order])
 
 #----------------------------------------------------------------------------
 
