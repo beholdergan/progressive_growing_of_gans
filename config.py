@@ -52,6 +52,7 @@ grid        = EasyDict(size='1080p', layout='random')       # Options for train.
 # Dataset (choose one).
 #desc += '-celebahq';            dataset = EasyDict(tfrecord_dir='CelebA-HQ/tf_files'); train.mirror_augment = True
 desc += '-beautydataset';       dataset = EasyDict(tfrecord_dir='beauty_dataset/tf_files'); train.mirror_augment = True
+#desc += '-beautydataset_asian';       dataset = EasyDict(tfrecord_dir='beauty_dataset/only_asian/tf_files'); train.mirror_augment = True
 #desc += '-beautydataset_cm';       dataset = EasyDict(tfrecord_dir='beauty_dataset/splited/caucasian_male/tf_files'); train.mirror_augment = True
 #desc += '-beautydataset_cf';       dataset = EasyDict(tfrecord_dir='beauty_dataset/splited/caucasian_female/tf_files'); train.mirror_augment = True
 #desc += '-beautydataset_am';       dataset = EasyDict(tfrecord_dir='beauty_dataset/splited/asian_male/tf_files'); train.mirror_augment = True
