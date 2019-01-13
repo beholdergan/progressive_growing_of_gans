@@ -69,13 +69,13 @@ for j in range(args.outputs):
         for i in range(args.beauty_levels):
             
             # initiate beauty rates label
-            if args.toal_agreement:
+            if args.total_agreement:
                 labels = np.ones(args.labels_size)
                 labels = labels * (min_beauty_level * (i +1))
+                labels = np.expand_dims(labels, axis=0)
             else:
                 labels = np.random.normal(min_beauty_level*(i+1), std, [1, args.labels_size])
                 labels = np.clip(labels, 0.0, 1.0)
-            labels = np.expand_dims(labels, axis=0)
             
             # infer conditioned noise to receive image
             image = Gs.run(latents, labels, minibatch_size=1, num_gpus=1, out_mul=127.5, out_add=127.5, out_shrink=1, out_dtype=np.uint8)

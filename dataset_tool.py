@@ -735,24 +735,28 @@ def create_celebahq_cond(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num
     
     beauty_rates = load_csv(tfrecord_dir)
     
+    # create numpy of [len(images),1] composed of mean values ranged in [0,10]
+    beauty_rates_mean = np.mean(beauty_rates, axis=1)*10
+    # round values into their closest integers
+    beauty_rates_mean = (beauty_rates_mean).astype(int)
+    
+    # create one hot vector and fill it
+    beauty_rates_one_hot = np.zeros((beauty_rates.shape[0], np.max(beauty_rates_mean) + 1), dtype=np.float32)
+    beauty_rates_one_hot[np.arange(beauty_rates.shape[0]), beauty_rates_mean] = 1.0
+    
     with TFRecordExporter(tfrecord_dir, indices.size) as tfr:
         order = tfr.choose_shuffled_order()
         with ThreadPool(num_threads) as pool:
-            for img in pool.process_items_concurrently(indices[order].tolist(), process_func=process_func, max_items_in_flight=num_tasks):
+            for i,img in enumerate(pool.process_items_concurrently(indices[order].tolist(), process_func=process_func, max_items_in_flight=num_tasks)):
+                
                 tfr.add_image(img)
                 
-                # validation of image and beauty rates pairing
-                #if idx%300 == 0:
-                #    im = PIL.Image.open(image_filenames[order[idx]])
-                #    im.save(os.path.basename(image_filenames[order[idx]]))
-                #    print("image {} beauty rates:".format(image_filenames[order[idx]]))
-                #    print(img.shape)
-                #    print(beauty_rates[order[idx]])
-                #    print("mean:")
-                #    print(beauty_rates_mean[order[idx]])
-                #    print(beauty_rates_one_hot[order[idx]])
+                #im = np.swapaxes(img, 0, 2)
+                #im = PIL.Image.fromarray(im)
+                #im  = im.transpose(PIL.Image.ROTATE_270)
+                #im.save("../datasets/CelebA-HQ/img/{}.png".format(str(order[i]).zfill(5)))
         
-        tfr.add_labels(beauty_rates[order])
+        tfr.add_labels(beauty_rates_one_hot[order])
 
 #----------------------------------------------------------------------------
 
